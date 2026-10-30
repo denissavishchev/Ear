@@ -49,7 +49,6 @@ class Trainer extends ChangeNotifier {
 
   MusicKey get key => allKeys[keyIndex];
   List<int> get degrees => levels[level];
-  int get accuracy => total == 0 ? 0 : (correct * 100 / total).round();
 
   Future<void> load() async {
     final p = _prefs = await SharedPreferences.getInstance();

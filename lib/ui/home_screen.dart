@@ -165,14 +165,16 @@ class _InfoLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = Palette.of(context);
-    final names = trainer.degrees.map((d) => romanNames[d]).join(' · ');
     final atFrontier =
         trainer.level == trainer.unlockedLevel &&
         trainer.level < levels.length - 1;
     final streak = atFrontier
         ? 'streak ${trainer.streak}/$unlockStreak'
         : 'streak ${trainer.streak}';
-    final acc = trainer.total == 0 ? '' : '  ·  ${trainer.accuracy}%';
+    final wrong = trainer.total - trainer.correct;
+    final score = trainer.total == 0
+        ? ''
+        : '  ·  ✓ ${trainer.correct}  ✗ $wrong';
     final text = p.fg.withValues(alpha: 0.85);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,8 +183,26 @@ class _InfoLine extends StatelessWidget {
           '${trainer.key.display()} (${trainer.key.relativeMinor()})',
           style: p.body(22, color: text),
         ),
-        Text(names, style: p.body(22, color: text)),
-        Text('$streak$acc', style: p.body(22, color: text)),
+        // Each degree with its note name underneath.
+        Wrap(
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            for (final d in trainer.degrees)
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(romanNames[d], style: p.body(22, color: text)),
+                  Text(
+                    trainer.key.letterOf(d),
+                    style: p.body(18, color: p.muted),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text('$streak$score', style: p.body(22, color: text)),
       ],
     );
   }
@@ -246,108 +266,47 @@ class _Orb extends StatelessWidget {
             color: trainer.phase == Phase.wrong
                 ? p.accent.withValues(alpha: 0.82)
                 : p.accent,
-            boxShadow: [
-              // Lifts the disc off the background.
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 28,
-                offset: const Offset(0, 14),
-              ),
-              if (solved)
-                BoxShadow(
-                  color: p.accent.withValues(alpha: 0.35),
-                  blurRadius: 40,
-                  spreadRadius: 2,
-                ),
-            ],
-          ),
-          child: CustomPaint(
-            // Shading goes over the swirl so both read as one surface.
-            foregroundPainter: const _OrbSurfacePainter(),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                // Ink-swirl texture, barely darker than the disc.
-                ClipOval(
-                  child: Image.asset(
-                    'assets/textures/swirl.png',
-                    width: size,
-                    height: size,
-                    fit: BoxFit.cover,
-                    color: Colors.black.withValues(alpha: 0.13),
-                    colorBlendMode: BlendMode.srcIn,
-                  ),
-                ),
-                Center(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 120),
-                    child: KeyedSubtree(
-                      key: ValueKey(
-                        '${trainer.phase == Phase.idle}-${trainer.captionTick}',
-                      ),
-                      child: label,
+            boxShadow: solved
+                ? [
+                    BoxShadow(
+                      color: p.accent.withValues(alpha: 0.35),
+                      blurRadius: 40,
+                      spreadRadius: 2,
                     ),
+                  ]
+                : const [],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Ink-swirl texture, barely darker than the disc.
+              ClipOval(
+                child: Image.asset(
+                  'assets/textures/swirl.png',
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  color: Colors.white.withValues(alpha: 0.02),
+                  colorBlendMode: BlendMode.srcIn,
+                ),
+              ),
+              Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 120),
+                  child: KeyedSubtree(
+                    key: ValueKey(
+                      '${trainer.phase == Phase.idle}-${trainer.captionTick}',
+                    ),
+                    child: label,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
-
-/// Soft top-left lighting and a lit rim, so the flat disc reads like a
-/// pressed, slightly domed paper stamp.
-class _OrbSurfacePainter extends CustomPainter {
-  const _OrbSurfacePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final c = size.center(Offset.zero);
-    final r = size.shortestSide / 2;
-    final rect = Rect.fromCircle(center: c, radius: r);
-    canvas.save();
-    canvas.clipPath(Path()..addOval(rect));
-
-    // Light from the top-left, shade towards the bottom-right.
-    canvas.drawRect(
-      rect,
-      Paint()
-        ..shader = RadialGradient(
-          center: const Alignment(-0.45, -0.5),
-          radius: 1.1,
-          colors: [
-            Colors.white.withValues(alpha: 0.2),
-            Colors.white.withValues(alpha: 0),
-            Colors.black.withValues(alpha: 0.22),
-          ],
-          stops: const [0, 0.45, 1],
-        ).createShader(rect),
-    );
-
-    // Thin bright rim on the lit edge.
-    canvas.drawCircle(
-      c,
-      r - 0.75,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.35),
-            Colors.white.withValues(alpha: 0),
-          ],
-        ).createShader(rect),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_OrbSurfacePainter oldDelegate) => false;
 }
 
 class _StatusRow extends StatelessWidget {
